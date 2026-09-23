@@ -31,49 +31,47 @@ For a production-like run: `npm run build && npm start`.
 
 `npm run migrate` only applies migrations that were not applied yet (they are tracked in the `schema_migrations` table), so it is safe to run it again after pulling new migrations.
 
+## Authentication
+
+Register with `POST /auth/register` and log in with `POST /auth/login`. The login returns a JWT; send it on the ticket routes as `Authorization: Bearer <token>`.
+
+Roles:
+
+- `solicitante`: default for every new account. Opens tickets and sees their own tickets in the list.
+- `atendente`: sees every ticket and can change the status.
+
+To make a user an agent run `npm run promote-agent -- email@example.com` (the user must log in again to get a token with the new role).
+
 ## Example requests
 
-Create a ticket:
-
 ```bash
+curl -X POST http://localhost:3000/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "Ana", "email": "ana@example.com", "password": "123456"}'
+
+curl -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "ana@example.com", "password": "123456"}'
+
 curl -i -X POST http://localhost:3000/tickets \
+  -H "Authorization: Bearer <token>" \
   -H 'Content-Type: application/json' \
-  -d '{"title": "Printer on 2nd floor is not working", "description": "Paper jam error", "priority": "alta", "requester_name": "Ana"}'
-```
-
-Response `201 Created`:
-
-```json
-{
-  "id": 1,
-  "title": "Printer on 2nd floor is not working",
-  "description": "Paper jam error",
-  "priority": "alta",
-  "status": "aberto",
-  "requester_name": "Ana",
-  "created_at": "2026-09-10 22:30:00",
-  "updated_at": "2026-09-10 22:30:00"
-}
-```
-
-Comment on it:
-
-```bash
-curl -X POST http://localhost:3000/tickets/1/comments \
-  -H 'Content-Type: application/json' \
-  -d '{"author": "Bruno", "body": "Checking it now"}'
+  -d '{"title": "Printer on 2nd floor is not working", "priority": "alta"}'
 ```
 
 ## Routes
 
-| Method | Route                   | Description                                                   |
-| ------ | ----------------------- | ------------------------------------------------------------- |
-| POST   | `/tickets`              | Create a ticket (`201`)                                       |
-| GET    | `/tickets`              | List tickets. Query: `status`, `page` (default 1), `limit` (default 20, max 100) |
-| GET    | `/tickets/:id`          | Ticket detail (`404` if it does not exist)                    |
-| PATCH  | `/tickets/:id`          | Update `title`, `description`, `priority` and/or `status`     |
-| POST   | `/tickets/:id/comments` | Add a comment (`author`, `body`)                              |
-| GET    | `/tickets/:id/comments` | List the comments of a ticket                                 |
+| Method | Route                   | Description                                       |
+| ------ | ----------------------- | ------------------------------------------------- |
+| POST   | `/auth/register`        | Create an account (`name`, `email`, `password`)   |
+| POST   | `/auth/login`           | Log in, returns `{ token, user }`                 |
+| GET    | `/auth/me`              | Current user                                      |
+| POST   | `/tickets`              | Create a ticket (`201`)                           |
+| GET    | `/tickets`              | List tickets. Query: `status`, `page`, `limit`    |
+| GET    | `/tickets/:id`          | Ticket detail                                     |
+| PATCH  | `/tickets/:id`          | Update a ticket (only agents can change `status`) |
+| POST   | `/tickets/:id/comments` | Add a comment (`body`)                            |
+| GET    | `/tickets/:id/comments` | List the comments of a ticket                     |
 
 Allowed values:
 
